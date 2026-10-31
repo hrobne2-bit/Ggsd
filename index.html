@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Couch TV</title>
+
+  <!-- HLS player for browsers such as Chrome on Android -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, sans-serif;
+      background: #111a21;
+      color: #e9edf0;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 6%;
+      border-bottom: 1px solid #33424b;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .logo span {
+      color: #efb661;
+    }
+
+    .tag {
+      color: #aab8c0;
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+
+    main {
+      max-width: 1400px;
+      margin: auto;
+      padding: 35px 6%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 40px;
+    }
+
+    .room {
+      position: relative;
+      height: min(53vw, 560px);
+      min-height: 320px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 40%, #354e5b, #1d303b 75%);
+      border-radius: 6px;
+    }
+
+    .floor {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 24%;
+      background: #18252c;
+    }
+
+    .picture {
+      position: absolute;
+      left: 6%;
+      top: 18%;
+      width: 9%;
+      height: 20%;
+      background: #c8ad8c;
+      border: 5px solid #172028;
+      transform: rotate(-3deg);
+    }
+
+    .picture::after {
+      content: "";
+      position: absolute;
+      width: 50%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: #dfaa63;
+      top: 15%;
+      right: 10%;
+    }
+
+    .lamp {
+      position: absolute;
+      right: 7%;
+      top: 34%;
+      width: 4px;
+      height: 45%;
+      background: #c8a15c;
+    }
+
+    .lamp::before {
+      content: "";
+      position: absolute;
+      top: -25px;
+      left: -23px;
+      width: 50px;
+      height: 36px;
+      background: #e7b660;
+      clip-path: polygon(25% 0, 75% 0, 100% 100%, 0 100%);
+      filter: drop-shadow(0 0 20px #ffcf78);
+    }
+
+    .tv {
+      position: absolute;
+      top: 14%;
+      left: 20%;
+      width: 60%;
+      border: 8px solid #101519;
+      border-radius: 7px;
+      background: #080c0e;
+      box-shadow: 0 12px 25px #0008;
+      z-index: 2;
+    }
+
+    .screen {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #080d10;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .screen-message {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 18px;
+      background: #080d10dd;
+      pointer-events: none;
+    }
+
+    .screen-message strong {
+      font-size: clamp(14px, 2vw, 22px);
+    }
+
+    .screen-message p {
+      color: #afbdc5;
+      font-size: clamp(11px, 1.2vw, 14px);
+      line-height: 1.4;
+      max-width: 360px;
+    }
+
+    .screen-message.hidden {
+      display: none;
+    }
+
+    .channel-badge {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 6px 9px;
+      border-radius: 4px;
+      background: #101820d9;
+      font-size: 12px;
+    }
+
+    .channel-badge span {
+      color: #efb661;
+      font-weight: bold;
+    }
+
+    .tv-bottom {
+      height: 14px;
+      text-align: center;
+      color: #73838b;
+      font-size: 9px;
+    }
+
+    .console {
+      position: absolute;
+      top: 72%;
+      left: 17%;
+      width: 66%;
+      height: 10%;
+      background: linear-gradient(#704528, #49301f);
+      box-shadow: 0 5px 10px #0006;
+      z-index: 1;
+    }
+
+    .sofa {
+      position: absolute;
+      bottom: -7%;
+      width: 32%;
+      height: 20%;
+      border-radius: 50% 50% 0 0;
+      background: #354c55;
+      border: 1px solid #4a636b;
+      z-index: 3;
+    }
+
+    .sofa.left {
+      left: -8%;
+      transform: rotate(8deg);
+    }
+
+    .sofa.right {
+      right: -8%;
+      transform: rotate(-8deg);
+    }
+
+    .intro h1 {
+      margin: 25px 0 5px;
+      font-size: 34px;
+    }
+
+    .intro p {
+      color: #a9bac3;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .remote-heading {
+      margin: 0 0 18px;
+    }
+
+    .remote {
+      background: linear-gradient(145deg, #29353b, #1a242a);
+      border: 1px solid #45545c;
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 18px 35px #0004;
+    }
+
+    .remote-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      font-weight: bold;
+    }
+
+    .power {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 1px solid #dc9167;
+      background: #172027;
+      color: #f0a678;
+      font-size: 24px;
+    }
+
+    .power.on {
+      background: #e9a66e;
+      color: #172027;
+    }
+
+    .remote-display {
+      background: #111c22;
+      padding: 11px;
+      border-radius: 5px;
+      font-size: 12px;
+      color: #a9bbc2;
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .controls button,
+    .extra-controls button {
+      min-height: 48px;
+      border: 1px solid #41505a;
+      border-radius: 9px;
+      color: #e9edf0;
+      background: #111c22;
+    }
+
+    .controls button:active,
+    .extra-controls button:active {
+      transform: scale(.96);
+    }
+
+    .controls .guide-button {
+      background: #eeb661;
+      color: #242018;
+      font-weight: 800;
+    }
+
+    .extra-controls {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .tip {
+      color: #a9bac3;
+      font-size: 13px;
+      line-height: 1.6;
+      margin-top: 20px;
+    }
+
+    .tip a {
+      color: #eeb661;
+    }
+
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      background: #000a;
+      justify-content: flex-end;
+    }
+
+    .overlay.open {
+      display: flex;
+    }
+
+    .guide {
+      width: min(480px, 100%);
+      height: 100%;
+      background: #1a292f;
+      display: flex;
+      flex-direction: column;
+      padding: 22px;
+    }
+
+    .guide-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .guide-header h2 {
+      margin: 0 0 18px;
+    }
+
+    .close {
+      background: transparent;
+      border: 0;
+      color: #e9edf0;
+      font-size: 28px;
+    }
+
+    .guide input,
+    .guide select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #53636b;
+      border-radius: 7px;
+      background: #111c22;
+      color: white;
+      margin-bottom: 10px;
+    }
+
+    .guide-tools {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .guide-tools button {
+      flex: 1;
+      padding: 10px;
+      background: #33444b;
+      border: 0;
+      border-radius: 7px;
+      color: white;
+    }
+
+    .guide-tools button.active {
+      background: #eeb661;
+      color: #242018;
+    }
+
+    .guide-status {
+      color: #a9bac3;
+      font-size: 13px;
+      margin: 5px 0 12px;
+      line-height: 1.4;
+    }
+
+    .channel-list {
+      overflow-y: auto;
+      flex: 1;
+      border-top: 1px solid #40525a;
+    }
+
+    .channel-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      padding: 13px 6px;
+      background: transparent;
+      color: white;
+      border: 0;
+      border-bottom: 1px solid #40525a;
+    }
+
+    .channel-row.selected {
+      color: #efb661;
+      background: #293c44;
+    }
+
+    .channel-info {
+      min-width: 0;
+    }
+
+    .channel-info strong {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .channel-info small {
+      display: block;
+      color: #a9bac3;
+      margin-top: 4px;
+    }
+
+    .guide-footer {
+      padding-top: 12px;
+      color: #a9bac3;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 20px;
+        gap: 30px;
+      }
+
+      .room {
+        height: 320px;
+      }
+
+      .tv {
+        left: 15%;
+        width: 70%;
+        top: 18%;
+      }
+
+      .console {
+        left: 13%;
+        width: 74%;
+        top: 70%;
+      }
+
+      .remote-section {
+        max-width: 420px;
+        width: 100%;
+        margin: auto;
+      }
+
+      .tag {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="logo">📺 couch<span>.</span>tv</div>
+    <div class="tag">YOUR LITTLE TV ROOM</div>
+  </header>
+
+  <main>
+    <section>
+      <div class="room">
+        <div class="picture"></div>
+        <div class="lamp"></div>
+        <div class="floor"></div>
+        <div class="console"></div>
+        <div class="sofa left"></div>
+        <div class="sofa right"></div>
+
+        <div class="tv">
+          <div class="screen">
+            <video id="video" playsinline controls></video>
+
+            <div class="screen-message" id="screenMessage">
+              <strong>Make yourself at home.</strong>
+              <p>Press power on the remote to turn on the TV.</p>
+            </div>
+
+            <div class="channel-badge" id="channelBadge">
+              <span>LIVE</span>
+              <span id="channelName"></span>
+            </div>
+          </div>
+
+          <div class="tv-bottom">couch · tv</div>
+        </div>
+      </div>
+
+      <div class="intro">
+        <h1>Stay a while.</h1>
+        <p>Real channels. Your own little corner of the world.</p>
+      </div>
+    </section>
+
+    <aside class="remote-section">
+      <h2 class="remote-heading">The remote</h2>
+
+      <div class="remote">
+        <div class="remote-top">
+          <span>couch · tv</span>
+          <button class="power" id="powerButton" aria-label="Power">
+            ⏻
+          </button>
+        </div>
+
+        <div class="remote-display" id="remoteDisplay">
+          ● TV OFF
+        </div>
+
+        <div class="controls">
+          <button id="previousButton">CH ▲</button>
+          <button class="guide-button" id="guideButton">GUIDE</button>
+          <button id="volumeUpButton">VOL +</button>
+
+          <button id="nextButton">CH ▼</button>
+          <button id="favoriteButton">☆ SAVE</button>
+          <button id="volumeDownButton">VOL −</button>
+        </div>
+
+        <div class="extra-controls">
+          <button id="muteButton">🔊 Mute</button>
+          <button id="fullscreenButton">⛶ Fullscreen</button>
+          <button id="retryButton">↻ Retry</button>
+          <button id="copyButton">⧉ Link for VLC</button>
+        </div>
+      </div>
+
+      <p class="tip">
+        Pick a channel from the guide. Some streams may be offline,
+        region-locked, or blocked in browsers.
+        <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener">
+          IPTV source ↗
+        </a>
+      </p>
+    </aside>
+  </main>
+
+  <div class="overlay" id="overlay">
+    <section class="guide">
+      <div class="guide-header">
+        <h2>Channel guide ↗</h2>
+        <button class="close" id="closeGuide" aria-label="Close">×</button>
+      </div>
+
+      <input id="search" type="search" placeholder="Search channels">
+      <select id="category">
+        <option value="all">All categories</option>
+      </select>
+
+      <div class="guide-tools">
+        <button id="favoritesFilter">☆ Favorites</button>
+        <button id="reloadPlaylist">↻ Reload list</button>
+      </div>
+
+      <div class="guide-status" id="guideStatus">
+        Turn on the TV to load channels.
+      </div>
+
+      <div class="channel-list" id="channelList"></div>
+
+      <div class="guide-footer">
+        Showing up to 200 results. Search or choose a category to find more.
+        Streams are provided by third parties.
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const PLAYLIST_URL = "https://iptv-org.github.io/iptv/index.m3u";
+
+    const video = document.getElementById("video");
+    const screenMessage = document.getElementById("screenMessage");
+    const channelBadge = document.getElementById("channelBadge");
+    const channelName = document.getElementById("channelName");
+    const powerButton = document.getElementById("powerButton");
+    const remoteDisplay = document.getElementById("remoteDisplay");
+    const overlay = document.getElementById("overlay");
+    const searchInput = document.getElementById("search");
+    const categorySelect = document.getElementById("category");
+    const channelList = document.getElementById("channelList");
+    const guideStatus = document.getElementById("guideStatus");
+    const favoritesFilter = document.getElementById("favoritesFilter");
+
+    let channels = [];
+    let currentIndex = -1;
+    let poweredOn = false;
+    let player = null;
+    let showFavorites = false;
+    let loading = false;
+    let favorites = [];
+
+    try {
+      favorites = JSON.parse(localStorage.getItem("couch-tv-favorites") || "[]");
+      if (!Array.isArray(favorites)) favorites = [];
+    } catch {
+      favorites = [];
+    }
+
+    function showMessage(title, detail) {
+      screenMessage.replaceChildren();
+
+      const heading = document.createElement("strong");
+      heading.textContent = title;
+
+      const paragraph = document.createElement("p");
+      paragraph.textContent = detail;
+
+      screenMessage.append(heading, paragraph);
+      screenMessage.classList.remove("hidden");
+    }
+
+    function saveFavorites() {
+      try {
+        localStorage.setItem("couch-tv-favorites", JSON.stringify(favorites));
+      } catch {
+        // The browser may block local storage.
+      }
+    }
+
+    function parsePlaylist(text) {
+      const lines = text.split(/\r?
+/);
+      const result = [];
+      let pending = null;
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+
+        if (line.startsWith("#EXTINF:")) {
+          const nameMatch = line.match(/,(.*)$/);
+          const groupMatch = line.match(/group-title="([^"]*)"/i);
+
+          pending = {
+            name: nameMatch ? nameMatch[1].trim() : "Untitled channel",
+            category: groupMatch && groupMatch[1] ? groupMatch[1] : "Other"
+          };
+        } else if (line && !line.startsWith("#") && pending) {
+          if (/^https?:\/\//i.test(line)) {
+            result.push({
+              ...pending,
+              url: line
+            });
+          }
+
+          pending = null;
+        }
+      }
+
+      return result;
+    }
+
+    async function loadPlaylist() {
+      if (loading) return;
+
+      loading = true;
+      guideStatus.textContent = "Loading the IPTV channel list...";
+      showMessage("Tuning in...", "Loading the channel list.");
+
+      try {
+        const response = await fetch(PLAYLIST_URL);
+
+        if (!response.ok) {
+          throw new Error("Playlist request failed: " + response.status);
+        }
+
+        const text = await response.text();
+        const parsed = parsePlaylist(text);
+
+        if (!parsed.length) {
+          throw new Error("The playlist did not contain any channels.");
+        }
+
+        channels = parsed;
+        currentIndex = -1;
+
+        const categories = [...new Set(channels.map(channel => channel.category))]
+          .sort((a, b) => a.localeCompare(b));
+
+        categorySelect.replaceChildren();
+
+        const allOption = document.createElement("option");
+        allOption.value = "all";
+        allOption.textContent = "All categories";
+        categorySelect.append(allOption);
+
+        for (const category of categories) {
+          const option = document.createElement("option");
+          option.value = category;
+          option.textContent = category;
+          categorySelect.append(option);
+        }
+
+        showMessage("Choose a channel", "Open the guide and pick something to watch.");
+        renderChannels();
+        openGuide();
+      } catch (error) {
+        console.error(error);
+
+        guideStatus.textContent =
+          "Could not load the playlist. Check your connection and tap Reload list.";
+
+        showMessage(
+          "Channel list unavailable",
+          "Check your connection and try Reload list in the guide."
+        );
+      } finally {
+        loading = false;
+      }
+    }
+
+    function openGuide() {
+      overlay.classList.add("open");
+      renderChannels();
+    }
+
+    function closeGuide() {
+      overlay.classList.remove("open");
+    }
+
+    function renderChannels() {
+      if (!channels.length) return;
+
+      const query = searchInput.value.trim().toLowerCase();
+      const category = categorySelect.value;
+
+      const matches = channels
+        .map((channel, index) => ({ ...channel, index }))
+        .filter(channel => {
+          const matchesSearch =
+            channel.name.toLowerCase().includes(query) ||
+            channel.category.toLowerCase().includes(query);
+
+          const matchesCategory =
+            category === "all" || channel.category === category;
+
+          const matchesFavorites =
+            !showFavorites || favorites.includes(channel.url);
+
+          return matchesSearch && matchesCategory && matchesFavorites;
+        });
+
+      guideStatus.textContent =
+        matches.length.toLocaleString() +
+        " matching streams. Showing up to 200.";
+
+      channelList.replaceChildren();
+
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "No channels found. Try another search.";
+        channelList.append(empty);
+        return;
+      }
+
+      for (const channel of matches.slice(0, 200)) {
+        const row = document.createElement("button");
+        row.className = "channel-row";
+
+        if (channel.index === currentIndex) {
+          row.classList.add("selected");
+        }
+
+        const info = document.createElement("span");
+        info.className = "channel-info";
+
+        const name = document.createElement("strong");
+        name.textContent = channel.name;
+
+        const categoryText = document.createElement("small");
+        categoryText.textContent = channel.category;
+
+        info.append(name, categoryText);
+
+        const indicator = document.createElement("span");
+        indicator.textContent = favorites.includes(channel.url) ? "★" : "↗";
+
+        row.append(info, indicator);
+        row.addEventListener("click", () => {
+          playChannel(channel.index);
+          closeGuide();
+        });
+
+        channelList.append(row);
+      }
+    }
+
+    function stopPlayer() {
+      if (player) {
+        player.destroy();
+        player = null;
+      }
+
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+
+    function setPower(value) {
+      poweredOn = value;
+      powerButton.classList.toggle("on", poweredOn);
+      remoteDisplay.textContent = poweredOn ? "● TV ON" : "● TV OFF";
+
+      if (!poweredOn) {
+        stopPlayer();
+        channelBadge.style.display = "none";
+        showMessage("TV is off", "Press power to turn it back on.");
+        return;
+      }
+
+      if (!channels.length) {
+        loadPlaylist();
+      } else if (currentIndex >= 0) {
+        playChannel(currentIndex);
+      } else {
+        openGuide();
+      }
+    }
+
+    function playChannel(index) {
+      if (!channels[index]) return;
+
+      if (!poweredOn) {
+        poweredOn = true;
+        powerButton.classList.add("on");
+        remoteDisplay.textContent = "● TV ON";
+      }
+
+      currentIndex = index;
+      const channel = channels[index];
+
+      stopPlayer();
+
+      channelName.textContent = channel.name;
+     
